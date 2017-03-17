@@ -5,11 +5,13 @@ import (
 	"log"
 	"net/url"
 	"html/template"
+	"github.com/paweloczadly/webapp/utils"
 )
 
 var (
 	left int
 	right int
+	influxEnabled bool = true
 )
 
 type Page struct {
@@ -18,20 +20,15 @@ type Page struct {
 }
 
 func main() {
+	utils.DumpAllEnvVars()
+
 	mux := http.NewServeMux()
-	//fs := http.FileServer(http.Dir("public"))
-	log.Println("Listening on port :3000")
+	log.Println("Listening on port :" + utils.AppPort())
+	fs := http.FileServer(http.Dir(utils.Content()))
 
-	mux.HandleFunc("/", home)
+	mux.Handle("/", fs)
 	mux.HandleFunc("/vote", vote)
-
-	http.ListenAndServe(":3000", mux)
-}
-
-func home(w http.ResponseWriter, r *http.Request) {
-	page := Page{Left: left, Right: right}
-	t, _ := template.ParseFiles("public/index.html")
-	t.Execute(w, page)
+	http.ListenAndServe(":" + utils.AppPort(), mux)
 }
 
 func vote(w http.ResponseWriter, r *http.Request) {
@@ -41,12 +38,22 @@ func vote(w http.ResponseWriter, r *http.Request) {
 	log.Println(hand)
 	if hand == "left" {
 		left++
+		if influxEnabled {
+			utils.WriteToInflux(left, "left")
+		}
 	}
 	if hand == "right" {
 		right++
+		if influxEnabled {
+			utils.WriteToInflux(right, "right")
+		}
+
 	}
 
 	page := Page{Left: left, Right: right}
-	t, _ := template.ParseFiles("public/index.html")
+	t, _ := template.ParseFiles(utils.Content() + "/index.html")
 	t.Execute(w, page)
 }
+
+
+
